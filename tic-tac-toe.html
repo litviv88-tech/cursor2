@@ -1,0 +1,861 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Крестики-нолики</title>
+  <style>
+    :root {
+      --bg-1: #0f0c29;
+      --bg-2: #302b63;
+      --bg-3: #24243e;
+      --glass: rgba(255, 255, 255, 0.08);
+      --glass-border: rgba(255, 255, 255, 0.15);
+      --text: #f0f0f5;
+      --muted: #a8a8c0;
+      --x-color: #ff6b9d;
+      --o-color: #4ecdc4;
+      --accent: #a78bfa;
+      --win-glow: rgba(167, 139, 250, 0.5);
+      --board-size: 4;
+      --cell-size: min(19vw, 76px);
+    }
+
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      min-height: 100vh;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-family: "Segoe UI", system-ui, -apple-system, sans-serif;
+      color: var(--text);
+      background: linear-gradient(135deg, var(--bg-1), var(--bg-2), var(--bg-3));
+      background-size: 400% 400%;
+      animation: gradientShift 12s ease infinite;
+      padding: 1.5rem;
+      overflow-x: hidden;
+    }
+
+    @keyframes gradientShift {
+      0%, 100% { background-position: 0% 50%; }
+      50% { background-position: 100% 50%; }
+    }
+
+    body::before {
+      content: "";
+      position: fixed;
+      inset: 0;
+      background:
+        radial-gradient(circle at 20% 30%, rgba(255, 107, 157, 0.12) 0%, transparent 50%),
+        radial-gradient(circle at 80% 70%, rgba(78, 205, 196, 0.12) 0%, transparent 50%);
+      pointer-events: none;
+    }
+
+    .app {
+      position: relative;
+      width: 100%;
+      max-width: 400px;
+      background: var(--glass);
+      backdrop-filter: blur(20px);
+      -webkit-backdrop-filter: blur(20px);
+      border: 1px solid var(--glass-border);
+      border-radius: 24px;
+      padding: 2rem 1.75rem;
+      box-shadow: 0 25px 50px rgba(0, 0, 0, 0.35), inset 0 1px 0 rgba(255, 255, 255, 0.1);
+      animation: fadeIn 0.6s ease;
+    }
+
+    @keyframes fadeIn {
+      from { opacity: 0; transform: translateY(20px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+
+    h1 {
+      text-align: center;
+      font-size: 1.75rem;
+      font-weight: 700;
+      letter-spacing: -0.02em;
+      margin-bottom: 0.25rem;
+      background: linear-gradient(90deg, var(--x-color), var(--accent), var(--o-color));
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      background-clip: text;
+    }
+
+    .subtitle {
+      text-align: center;
+      color: var(--muted);
+      font-size: 0.875rem;
+      margin-bottom: 1.25rem;
+    }
+
+    .settings {
+      margin-bottom: 1.25rem;
+      padding: 1rem;
+      border-radius: 12px;
+      background: rgba(0, 0, 0, 0.22);
+      border: 1px solid var(--glass-border);
+    }
+
+    .settings-label {
+      font-size: 0.72rem;
+      text-transform: uppercase;
+      letter-spacing: 0.07em;
+      color: var(--muted);
+      margin-bottom: 0.5rem;
+    }
+
+    .chip-group {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 0.4rem;
+    }
+
+    .chip {
+      flex: 1;
+      min-width: calc(50% - 0.25rem);
+      padding: 0.45rem 0.5rem;
+      border: 1px solid var(--glass-border);
+      border-radius: 10px;
+      background: rgba(255, 255, 255, 0.05);
+      color: var(--text);
+      font-size: 0.78rem;
+      font-weight: 600;
+      cursor: pointer;
+      transition: background 0.2s, border-color 0.2s, transform 0.15s;
+    }
+
+    .chip:hover { background: rgba(255, 255, 255, 0.1); }
+
+    .chip.active {
+      border-color: var(--accent);
+      background: rgba(167, 139, 250, 0.25);
+      box-shadow: 0 0 12px rgba(167, 139, 250, 0.25);
+    }
+
+    .settings-row {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-top: 0.75rem;
+      padding-top: 0.75rem;
+      border-top: 1px solid rgba(255, 255, 255, 0.08);
+    }
+
+    .toggle {
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+      cursor: pointer;
+      font-size: 0.85rem;
+      color: var(--muted);
+      user-select: none;
+    }
+
+    .toggle input {
+      width: 2.5rem;
+      height: 1.35rem;
+      accent-color: var(--accent);
+      cursor: pointer;
+    }
+
+    .scoreboard {
+      display: grid;
+      grid-template-columns: 1fr 1fr 1fr;
+      gap: 0.5rem;
+      margin-bottom: 1.25rem;
+    }
+
+    .score-item {
+      text-align: center;
+      padding: 0.6rem 0.4rem;
+      border-radius: 12px;
+      background: rgba(0, 0, 0, 0.2);
+      border: 1px solid transparent;
+      transition: border-color 0.3s, transform 0.2s;
+    }
+
+    .score-item.active {
+      border-color: var(--accent);
+      transform: scale(1.02);
+    }
+
+    .score-item .label {
+      font-size: 0.7rem;
+      text-transform: uppercase;
+      letter-spacing: 0.06em;
+      color: var(--muted);
+      margin-bottom: 0.2rem;
+    }
+
+    .score-item .value { font-size: 1.4rem; font-weight: 700; }
+    .score-item.x-score .value { color: var(--x-color); }
+    .score-item.o-score .value { color: var(--o-color); }
+    .score-item.draw-score .value { color: var(--muted); }
+
+    .status-bar {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      margin-bottom: 1.25rem;
+      min-height: 2.5rem;
+    }
+
+    .turn-indicator {
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+      padding: 0.5rem 1rem;
+      border-radius: 999px;
+      background: rgba(0, 0, 0, 0.25);
+      font-size: 0.95rem;
+      transition: all 0.3s ease;
+    }
+
+    .turn-indicator .symbol {
+      font-size: 1.35rem;
+      line-height: 1;
+    }
+
+    .turn-indicator.x-turn .symbol { filter: drop-shadow(0 0 8px rgba(255, 107, 157, 0.6)); }
+    .turn-indicator.o-turn .symbol { filter: drop-shadow(0 0 8px rgba(78, 205, 196, 0.6)); }
+
+    .board {
+      display: grid;
+      grid-template-columns: repeat(var(--board-size), var(--cell-size));
+      grid-template-rows: repeat(var(--board-size), var(--cell-size));
+      gap: 8px;
+      justify-content: center;
+      margin: 0 auto 1.5rem;
+      position: relative;
+    }
+
+    .board.thinking { pointer-events: none; opacity: 0.92; }
+
+    .cell {
+      width: var(--cell-size);
+      height: var(--cell-size);
+      border: none;
+      border-radius: 12px;
+      background: rgba(255, 255, 255, 0.06);
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: calc(var(--cell-size) * 0.48);
+      line-height: 1;
+      transition: background 0.2s, transform 0.15s, box-shadow 0.3s;
+      position: relative;
+      overflow: hidden;
+    }
+
+    .cell:hover:not(:disabled):not(.taken) {
+      background: rgba(255, 255, 255, 0.12);
+      transform: scale(1.04);
+    }
+
+    .cell:active:not(:disabled) { transform: scale(0.96); }
+    .cell:disabled { cursor: default; }
+
+    .cell.x, .cell.o { animation: popIn 0.35s cubic-bezier(0.34, 1.56, 0.64, 1); }
+
+    .cell.win {
+      background: rgba(167, 139, 250, 0.25);
+      box-shadow: 0 0 24px var(--win-glow);
+      animation: winPulse 0.6s ease infinite alternate;
+    }
+
+    @keyframes popIn {
+      from { opacity: 0; transform: scale(0.3) rotate(-15deg); }
+      to { opacity: 1; transform: scale(1) rotate(0); }
+    }
+
+    @keyframes winPulse {
+      from { box-shadow: 0 0 12px var(--win-glow); }
+      to { box-shadow: 0 0 28px var(--win-glow); }
+    }
+
+    .win-line {
+      position: absolute;
+      background: linear-gradient(90deg, var(--x-color), var(--accent), var(--o-color));
+      border-radius: 4px;
+      pointer-events: none;
+      opacity: 0;
+      transform: scale(0);
+      transition: opacity 0.3s, transform 0.4s cubic-bezier(0.34, 1.56, 0.64, 1);
+      z-index: 2;
+      box-shadow: 0 0 12px var(--win-glow);
+    }
+
+    .win-line.visible { opacity: 1; transform: scale(1); }
+
+    .message {
+      text-align: center;
+      font-size: 1.05rem;
+      font-weight: 600;
+      min-height: 1.5rem;
+      margin-bottom: 1rem;
+    }
+
+    .message.win-x { color: var(--x-color); }
+    .message.win-o { color: var(--o-color); }
+    .message.draw { color: var(--muted); }
+
+    .actions { display: flex; gap: 0.75rem; }
+
+    .btn {
+      flex: 1;
+      padding: 0.85rem 1rem;
+      border: none;
+      border-radius: 12px;
+      font-size: 0.95rem;
+      font-weight: 600;
+      cursor: pointer;
+      transition: transform 0.15s, box-shadow 0.2s;
+    }
+
+    .btn:hover { transform: translateY(-2px); }
+    .btn:active { transform: translateY(0); }
+
+    .btn-primary {
+      background: linear-gradient(135deg, var(--accent), #7c3aed);
+      color: white;
+      box-shadow: 0 4px 20px rgba(124, 58, 237, 0.4);
+    }
+
+    .btn-secondary {
+      background: rgba(255, 255, 255, 0.08);
+      color: var(--text);
+      border: 1px solid var(--glass-border);
+    }
+
+    @media (max-width: 380px) {
+      :root { --cell-size: 68px; }
+      .app { padding: 1.5rem 1.25rem; }
+      h1 { font-size: 1.5rem; }
+      .chip { min-width: 100%; }
+    }
+  </style>
+</head>
+<body>
+  <div class="app">
+    <h1>Крестики-нолики</h1>
+    <p class="subtitle">Поле 4×4 · 4 в ряд · <span id="roleHint">вы 🔥, ИИ 🧊</span></p>
+
+    <div class="settings">
+      <div class="settings-label">Кто ходит первым</div>
+      <div class="chip-group" id="firstTurnGroup" role="group" aria-label="Первый ход">
+        <button type="button" class="chip active" data-first="player">Вы</button>
+        <button type="button" class="chip" data-first="computer">Компьютер</button>
+        <button type="button" class="chip" data-first="random">Случайно</button>
+      </div>
+      <div class="settings-row">
+        <span class="settings-label" style="margin:0">Звук</span>
+        <label class="toggle">
+          <input type="checkbox" id="soundToggle" checked>
+          <span>Включён</span>
+        </label>
+      </div>
+    </div>
+
+    <div class="scoreboard">
+      <div class="score-item x-score" id="scoreYou">
+        <div class="label">Вы</div>
+        <div class="value">0</div>
+      </div>
+      <div class="score-item draw-score" id="scoreDraw">
+        <div class="label">Ничья</div>
+        <div class="value">0</div>
+      </div>
+      <div class="score-item o-score" id="scoreCpu">
+        <div class="label">ИИ</div>
+        <div class="value">0</div>
+      </div>
+    </div>
+
+    <div class="status-bar">
+      <div class="turn-indicator x-turn" id="turnIndicator">
+        <span id="turnText">Ваш ход</span>
+        <span class="symbol" id="turnSymbol">🔥</span>
+      </div>
+    </div>
+
+    <div class="board" id="board" role="grid" aria-label="Игровое поле"></div>
+
+    <p class="message" id="message" aria-live="polite"></p>
+
+    <div class="actions">
+      <button class="btn btn-primary" id="btnRestart" type="button">Новая партия</button>
+      <button class="btn btn-secondary" id="btnResetScore" type="button">Сброс счёта</button>
+    </div>
+  </div>
+
+  <script>
+    const SIZE = 4;
+    const WIN_LEN = 4;
+    const CELL_COUNT = SIZE * SIZE;
+
+    function buildWinLines() {
+      const lines = [];
+      for (let r = 0; r < SIZE; r++) {
+        const row = [];
+        for (let c = 0; c < WIN_LEN; c++) row.push(r * SIZE + c);
+        lines.push(row);
+      }
+      for (let c = 0; c < SIZE; c++) {
+        const col = [];
+        for (let r = 0; r < WIN_LEN; r++) col.push(r * SIZE + c);
+        lines.push(col);
+      }
+      lines.push([0, 5, 10, 15], [3, 6, 9, 12]);
+      return lines;
+    }
+
+    const WIN_LINES = buildWinLines();
+    const CENTER_CELLS = [5, 6, 9, 10];
+    const CORNER_CELLS = [0, 3, 12, 15];
+
+    const SYMBOLS = { X: "🔥", O: "🧊" };
+    const HUMAN = "X";
+    const CPU = "O";
+
+    let board = Array(CELL_COUNT).fill(null);
+    let currentPlayer = HUMAN;
+    let gameOver = false;
+    let thinking = false;
+    let firstTurn = "player";
+    let soundOn = true;
+    let scores = { you: 0, cpu: 0, draw: 0 };
+
+    const boardEl = document.getElementById("board");
+    const messageEl = document.getElementById("message");
+    const turnIndicator = document.getElementById("turnIndicator");
+    const turnSymbol = document.getElementById("turnSymbol");
+    const turnText = document.getElementById("turnText");
+    const scoreYouEl = document.querySelector("#scoreYou .value");
+    const scoreCpuEl = document.querySelector("#scoreCpu .value");
+    const scoreDrawEl = document.querySelector("#scoreDraw .value");
+    const scoreYouBox = document.getElementById("scoreYou");
+    const scoreCpuBox = document.getElementById("scoreCpu");
+
+    /* ——— Звук (Web Audio API) ——— */
+    let audioCtx = null;
+
+    function ensureAudio() {
+      if (!audioCtx) {
+        audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+      }
+      if (audioCtx.state === "suspended") {
+        return audioCtx.resume();
+      }
+      return Promise.resolve();
+    }
+
+    function playTone(freq, duration, type = "sine", volume = 0.15, when = 0) {
+      if (!soundOn || !audioCtx) return;
+      const t = audioCtx.currentTime + when;
+      const osc = audioCtx.createOscillator();
+      const gain = audioCtx.createGain();
+      osc.type = type;
+      osc.frequency.value = freq;
+      gain.gain.setValueAtTime(volume, t);
+      gain.gain.exponentialRampToValueAtTime(0.001, t + duration);
+      osc.connect(gain);
+      gain.connect(audioCtx.destination);
+      osc.start(t);
+      osc.stop(t + duration);
+    }
+
+    const sounds = {
+      async move() {
+        await ensureAudio();
+        playTone(520, 0.08, "sine", 0.12);
+        playTone(780, 0.06, "sine", 0.08, 0.04);
+      },
+      async win() {
+        await ensureAudio();
+        [523, 659, 784, 1047].forEach((f, i) => playTone(f, 0.18, "triangle", 0.14, i * 0.1));
+      },
+      async lose() {
+        await ensureAudio();
+        [400, 320, 240].forEach((f, i) => playTone(f, 0.2, "sawtooth", 0.1, i * 0.12));
+      },
+      async draw() {
+        await ensureAudio();
+        playTone(330, 0.25, "sine", 0.12);
+        playTone(280, 0.3, "sine", 0.1, 0.15);
+      },
+    };
+
+    document.getElementById("soundToggle").addEventListener("change", (e) => {
+      soundOn = e.target.checked;
+      if (soundOn) ensureAudio();
+    });
+
+    document.body.addEventListener("click", () => ensureAudio(), { once: true });
+
+    /* ——— ИИ: минимакс + альфа-бета + эвристика (4×4) ——— */
+    const tt = new Map();
+
+    function lineWinner(b, line) {
+      const first = b[line[0]];
+      if (!first) return null;
+      for (let i = 1; i < line.length; i++) {
+        if (b[line[i]] !== first) return null;
+      }
+      return first;
+    }
+
+    function getWinner(b) {
+      for (const line of WIN_LINES) {
+        const w = lineWinner(b, line);
+        if (w) return w;
+      }
+      return null;
+    }
+
+    function isFull(b) {
+      return b.every(Boolean);
+    }
+
+    function boardKey(b) {
+      return b.map((c) => c || ".").join("");
+    }
+
+    function scoreLine(cells, player) {
+      const opp = player === CPU ? HUMAN : CPU;
+      let mine = 0;
+      let theirs = 0;
+      for (const c of cells) {
+        if (c === player) mine++;
+        else if (c === opp) theirs++;
+      }
+      if (mine > 0 && theirs > 0) return 0;
+      if (mine === 3) return 80;
+      if (mine === 2) return 12;
+      if (mine === 1) return 2;
+      return 0;
+    }
+
+    function evaluate(b) {
+      const winner = getWinner(b);
+      if (winner === CPU) return 10000;
+      if (winner === HUMAN) return -10000;
+      if (isFull(b)) return 0;
+
+      let score = 0;
+      for (const line of WIN_LINES) {
+        const cells = line.map((i) => b[i]);
+        score += scoreLine(cells, CPU) - scoreLine(cells, HUMAN);
+      }
+      for (const i of CENTER_CELLS) {
+        if (b[i] === CPU) score += 3;
+        if (b[i] === HUMAN) score -= 3;
+      }
+      return score;
+    }
+
+    function orderedMoves(b) {
+      const empty = [];
+      for (let i = 0; i < CELL_COUNT; i++) {
+        if (!b[i]) empty.push(i);
+      }
+
+      const priority = (idx) => {
+        if (CENTER_CELLS.includes(idx)) return 0;
+        if (CORNER_CELLS.includes(idx)) return 1;
+        return 2;
+      };
+
+      return empty.sort((a, bb) => priority(a) - priority(bb));
+    }
+
+    function searchDepth(b) {
+      const empty = b.filter((c) => !c).length;
+      if (empty <= 6) return empty + 4;
+      if (empty <= 10) return 9;
+      return 7;
+    }
+
+    function minimax(b, depth, maxDepth, isMax, alpha, beta) {
+      const winner = getWinner(b);
+      if (winner === CPU) return 10000 - depth;
+      if (winner === HUMAN) return -10000 + depth;
+      if (isFull(b)) return 0;
+
+      const key = boardKey(b) + (isMax ? "M" : "m") + depth;
+      if (tt.has(key)) return tt.get(key);
+
+      if (depth >= maxDepth) {
+        const ev = evaluate(b);
+        tt.set(key, ev);
+        return ev;
+      }
+
+      const moves = orderedMoves(b);
+
+      if (isMax) {
+        let best = -Infinity;
+        for (const i of moves) {
+          b[i] = CPU;
+          best = Math.max(best, minimax(b, depth + 1, maxDepth, false, alpha, beta));
+          b[i] = null;
+          alpha = Math.max(alpha, best);
+          if (beta <= alpha) break;
+        }
+        tt.set(key, best);
+        return best;
+      }
+
+      let best = Infinity;
+      for (const i of moves) {
+        b[i] = HUMAN;
+        best = Math.min(best, minimax(b, depth + 1, maxDepth, true, alpha, beta));
+        b[i] = null;
+        beta = Math.min(beta, best);
+        if (beta <= alpha) break;
+      }
+      tt.set(key, best);
+      return best;
+    }
+
+    function getBestMove() {
+      tt.clear();
+      const maxDepth = searchDepth(board);
+      let bestScore = -Infinity;
+      let move = -1;
+
+      for (const i of orderedMoves(board)) {
+        board[i] = CPU;
+        const score = minimax(board, 0, maxDepth, false, -Infinity, Infinity);
+        board[i] = null;
+        if (score > bestScore) {
+          bestScore = score;
+          move = i;
+        }
+      }
+      return move;
+    }
+
+    /* ——— UI ——— */
+    function createBoard() {
+      boardEl.innerHTML = "";
+      for (let i = 0; i < CELL_COUNT; i++) {
+        const cell = document.createElement("button");
+        cell.className = "cell";
+        cell.type = "button";
+        cell.dataset.index = i;
+        cell.setAttribute("aria-label", `Клетка ${i + 1}`);
+        cell.addEventListener("click", () => onCellClick(i));
+        boardEl.appendChild(cell);
+      }
+    }
+
+    function getCells() {
+      return boardEl.querySelectorAll(".cell");
+    }
+
+    function setThinking(value) {
+      thinking = value;
+      boardEl.classList.toggle("thinking", value);
+    }
+
+    function updateTurnUI() {
+      const isHumanTurn = currentPlayer === HUMAN;
+      turnIndicator.className = `turn-indicator ${currentPlayer === HUMAN ? "x-turn" : "o-turn"}`;
+      turnSymbol.textContent = SYMBOLS[currentPlayer];
+
+      if (gameOver) {
+        turnText.textContent = "Игра окончена";
+        scoreYouBox.classList.remove("active");
+        scoreCpuBox.classList.remove("active");
+        return;
+      }
+
+      if (thinking) {
+        turnText.textContent = "ИИ думает…";
+        scoreYouBox.classList.remove("active");
+        scoreCpuBox.classList.add("active");
+        return;
+      }
+
+      turnText.textContent = isHumanTurn ? "Ваш ход" : "Ход ИИ";
+      scoreYouBox.classList.toggle("active", isHumanTurn);
+      scoreCpuBox.classList.toggle("active", !isHumanTurn);
+    }
+
+    function updateScoresUI() {
+      scoreYouEl.textContent = scores.you;
+      scoreCpuEl.textContent = scores.cpu;
+      scoreDrawEl.textContent = scores.draw;
+    }
+
+    function placeSymbol(index, player, playSound = true) {
+      board[index] = player;
+      const cell = getCells()[index];
+      cell.textContent = SYMBOLS[player];
+      cell.classList.add("taken", player === HUMAN ? "x" : "o");
+      cell.disabled = true;
+      if (playSound) sounds.move();
+    }
+
+    function checkGameEnd() {
+      for (const line of WIN_LINES) {
+        const w = lineWinner(board, line);
+        if (w) return { type: "win", player: w, line: [...line] };
+      }
+      if (board.every(Boolean)) return { type: "draw" };
+      return null;
+    }
+
+    function drawWinLine(indices) {
+      const existing = boardEl.querySelector(".win-line");
+      if (existing) existing.remove();
+
+      const cells = getCells();
+      const boardRect = boardEl.getBoundingClientRect();
+      const r1 = cells[indices[0]].getBoundingClientRect();
+      const r2 = cells[indices[indices.length - 1]].getBoundingClientRect();
+
+      const x1 = r1.left + r1.width / 2 - boardRect.left;
+      const y1 = r1.top + r1.height / 2 - boardRect.top;
+      const x2 = r2.left + r2.width / 2 - boardRect.left;
+      const y2 = r2.top + r2.height / 2 - boardRect.top;
+
+      const length = Math.hypot(x2 - x1, y2 - y1);
+      const angle = Math.atan2(y2 - y1, x2 - x1) * (180 / Math.PI);
+
+      const line = document.createElement("div");
+      line.className = "win-line";
+      line.style.cssText = `
+        width:${length}px;height:5px;left:${x1}px;top:${y1}px;
+        transform-origin:0 50%;transform:rotate(${angle}deg) scale(0);
+      `;
+      boardEl.appendChild(line);
+      requestAnimationFrame(() => {
+        line.classList.add("visible");
+        line.style.transform = `rotate(${angle}deg) scale(1)`;
+      });
+    }
+
+    function endGame(result) {
+      gameOver = true;
+      setThinking(false);
+      getCells().forEach((c) => { c.disabled = true; });
+
+      if (result.type === "win") {
+        if (result.player === HUMAN) {
+          scores.you++;
+          sounds.win();
+          messageEl.textContent = "Вы победили! 🎉";
+          messageEl.className = "message win-x";
+        } else {
+          scores.cpu++;
+          sounds.lose();
+          messageEl.textContent = "Победил ИИ 🤖";
+          messageEl.className = "message win-o";
+        }
+        result.line.forEach((i) => getCells()[i].classList.add("win"));
+        drawWinLine(result.line);
+      } else {
+        scores.draw++;
+        sounds.draw();
+        messageEl.textContent = "Ничья! 🤝";
+        messageEl.className = "message draw";
+      }
+
+      updateScoresUI();
+      updateTurnUI();
+    }
+
+    function afterMove() {
+      const result = checkGameEnd();
+      if (result) {
+        endGame(result);
+        return true;
+      }
+      currentPlayer = currentPlayer === HUMAN ? CPU : HUMAN;
+      updateTurnUI();
+      return false;
+    }
+
+    function cpuTurn() {
+      if (gameOver) return;
+      setThinking(true);
+      updateTurnUI();
+
+      setTimeout(() => {
+        if (gameOver) {
+          setThinking(false);
+          return;
+        }
+        const move = getBestMove();
+        if (move === -1) {
+          setThinking(false);
+          return;
+        }
+        placeSymbol(move, CPU);
+        setThinking(false);
+        if (!afterMove() && currentPlayer === CPU) cpuTurn();
+      }, 380);
+    }
+
+    function onCellClick(index) {
+      if (gameOver || thinking || board[index] || currentPlayer !== HUMAN) return;
+      ensureAudio();
+      placeSymbol(index, HUMAN);
+      if (afterMove()) return;
+      cpuTurn();
+    }
+
+    function resolveFirstPlayer() {
+      if (firstTurn === "player") return HUMAN;
+      if (firstTurn === "computer") return CPU;
+      return Math.random() < 0.5 ? HUMAN : CPU;
+    }
+
+    function startGame() {
+      board = Array(CELL_COUNT).fill(null);
+      gameOver = false;
+      messageEl.textContent = "";
+      messageEl.className = "message";
+
+      const winLine = boardEl.querySelector(".win-line");
+      if (winLine) winLine.remove();
+
+      createBoard();
+      currentPlayer = resolveFirstPlayer();
+      updateTurnUI();
+
+      if (currentPlayer === CPU) cpuTurn();
+    }
+
+    function restartGame() {
+      startGame();
+    }
+
+    function resetScores() {
+      scores = { you: 0, cpu: 0, draw: 0 };
+      updateScoresUI();
+      startGame();
+    }
+
+    document.querySelectorAll("#firstTurnGroup .chip").forEach((chip) => {
+      chip.addEventListener("click", () => {
+        document.querySelectorAll("#firstTurnGroup .chip").forEach((c) => c.classList.remove("active"));
+        chip.classList.add("active");
+        firstTurn = chip.dataset.first;
+        if (!gameOver) startGame();
+      });
+    });
+
+    document.getElementById("btnRestart").addEventListener("click", restartGame);
+    document.getElementById("btnResetScore").addEventListener("click", resetScores);
+
+    createBoard();
+    updateScoresUI();
+    startGame();
+  </script>
+</body>
+</html>
