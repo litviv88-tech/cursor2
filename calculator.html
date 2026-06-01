@@ -1,0 +1,558 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Калькулятор</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;500;700&family=JetBrains+Mono:wght@500;700&display=swap" rel="stylesheet">
+  <style>
+    :root {
+      --bg-deep: #0a0a0f;
+      --bg-mid: #12121c;
+      --surface: rgba(255, 255, 255, 0.04);
+      --surface-hover: rgba(255, 255, 255, 0.09);
+      --border: rgba(255, 255, 255, 0.08);
+      --text: #f4f4f8;
+      --muted: #6b6b80;
+      --accent: #7c5cff;
+      --accent-glow: rgba(124, 92, 255, 0.45);
+      --warm: #ff6b4a;
+      --warm-glow: rgba(255, 107, 74, 0.4);
+      --mint: #2ee6a6;
+      --mint-glow: rgba(46, 230, 166, 0.35);
+      --radius: 20px;
+      --btn-radius: 16px;
+    }
+
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      min-height: 100vh;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-family: "Outfit", system-ui, sans-serif;
+      background: var(--bg-deep);
+      color: var(--text);
+      padding: 1.5rem;
+      overflow: hidden;
+    }
+
+    body::before,
+    body::after {
+      content: "";
+      position: fixed;
+      border-radius: 50%;
+      filter: blur(100px);
+      pointer-events: none;
+      animation: float 14s ease-in-out infinite;
+    }
+
+    body::before {
+      width: 420px;
+      height: 420px;
+      background: var(--accent);
+      opacity: 0.22;
+      top: -120px;
+      right: -80px;
+    }
+
+    body::after {
+      width: 360px;
+      height: 360px;
+      background: var(--warm);
+      opacity: 0.15;
+      bottom: -100px;
+      left: -60px;
+      animation-delay: -7s;
+    }
+
+    @keyframes float {
+      0%, 100% { transform: translate(0, 0) scale(1); }
+      50% { transform: translate(-20px, 25px) scale(1.08); }
+    }
+
+    .calc {
+      position: relative;
+      width: 100%;
+      max-width: 340px;
+      padding: 1.75rem;
+      border-radius: 28px;
+      background: linear-gradient(145deg, rgba(255,255,255,0.07) 0%, rgba(255,255,255,0.02) 100%);
+      border: 1px solid var(--border);
+      box-shadow:
+        0 40px 80px rgba(0, 0, 0, 0.55),
+        inset 0 1px 0 rgba(255, 255, 255, 0.12);
+      backdrop-filter: blur(24px);
+      -webkit-backdrop-filter: blur(24px);
+      animation: appear 0.7s cubic-bezier(0.22, 1, 0.36, 1);
+    }
+
+    @keyframes appear {
+      from { opacity: 0; transform: translateY(24px) scale(0.96); }
+      to { opacity: 1; transform: translateY(0) scale(1); }
+    }
+
+    .calc-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 1.25rem;
+    }
+
+    .calc-title {
+      font-size: 0.75rem;
+      font-weight: 500;
+      letter-spacing: 0.2em;
+      text-transform: uppercase;
+      color: var(--muted);
+    }
+
+    .mode-dot {
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      background: var(--mint);
+      box-shadow: 0 0 12px var(--mint-glow);
+      animation: pulse 2s ease infinite;
+    }
+
+    @keyframes pulse {
+      0%, 100% { opacity: 1; }
+      50% { opacity: 0.5; }
+    }
+
+    .display-wrap {
+      position: relative;
+      margin-bottom: 1.5rem;
+      padding: 1.25rem 1rem;
+      border-radius: var(--radius);
+      background: rgba(0, 0, 0, 0.35);
+      border: 1px solid var(--border);
+      min-height: 100px;
+      display: flex;
+      flex-direction: column;
+      justify-content: flex-end;
+      overflow: hidden;
+    }
+
+    .display-wrap::after {
+      content: "";
+      position: absolute;
+      inset: 0;
+      background: linear-gradient(180deg, transparent 60%, rgba(124, 92, 255, 0.06) 100%);
+      pointer-events: none;
+    }
+
+    .expression {
+      font-family: "JetBrains Mono", monospace;
+      font-size: 0.8rem;
+      color: var(--muted);
+      text-align: right;
+      min-height: 1.2em;
+      word-break: break-all;
+      opacity: 0;
+      transform: translateY(4px);
+      transition: opacity 0.2s, transform 0.2s;
+    }
+
+    .expression.visible {
+      opacity: 1;
+      transform: translateY(0);
+    }
+
+    .result {
+      font-family: "JetBrains Mono", monospace;
+      font-size: clamp(2rem, 10vw, 2.75rem);
+      font-weight: 700;
+      text-align: right;
+      line-height: 1.1;
+      letter-spacing: -0.02em;
+      transition: transform 0.15s ease, color 0.2s;
+    }
+
+    .result.bump {
+      animation: bump 0.25s ease;
+    }
+
+    @keyframes bump {
+      0% { transform: scale(1); }
+      40% { transform: scale(1.03); }
+      100% { transform: scale(1); }
+    }
+
+    .result.error { color: var(--warm); }
+
+    .keys {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 10px;
+    }
+
+    .key {
+      position: relative;
+      height: 58px;
+      border: none;
+      border-radius: var(--btn-radius);
+      font-family: "Outfit", sans-serif;
+      font-size: 1.15rem;
+      font-weight: 500;
+      color: var(--text);
+      background: var(--surface);
+      cursor: pointer;
+      transition:
+        transform 0.12s cubic-bezier(0.34, 1.56, 0.64, 1),
+        background 0.2s,
+        box-shadow 0.2s;
+      overflow: hidden;
+      -webkit-tap-highlight-color: transparent;
+    }
+
+    .key::before {
+      content: "";
+      position: absolute;
+      inset: 0;
+      background: radial-gradient(circle at 50% 0%, rgba(255,255,255,0.12), transparent 70%);
+      opacity: 0;
+      transition: opacity 0.2s;
+    }
+
+    .key:hover::before { opacity: 1; }
+    .key:hover { background: var(--surface-hover); }
+
+    .key:active {
+      transform: scale(0.92);
+    }
+
+    .key.op {
+      color: var(--accent);
+      font-weight: 700;
+    }
+
+    .key.op:hover {
+      box-shadow: 0 0 24px var(--accent-glow);
+    }
+
+    .key.equals {
+      background: linear-gradient(135deg, var(--accent), #5a3fd4);
+      color: white;
+      font-weight: 700;
+      grid-column: span 1;
+    }
+
+    .key.equals:hover {
+      box-shadow: 0 8px 32px var(--accent-glow);
+    }
+
+    .key.clear {
+      color: var(--warm);
+    }
+
+    .key.clear:hover {
+      box-shadow: 0 0 20px var(--warm-glow);
+    }
+
+    .key.wide {
+      grid-column: span 2;
+    }
+
+    .ripple {
+      position: absolute;
+      border-radius: 50%;
+      background: rgba(255, 255, 255, 0.35);
+      transform: scale(0);
+      animation: ripple 0.5s ease-out forwards;
+      pointer-events: none;
+    }
+
+    @keyframes ripple {
+      to { transform: scale(4); opacity: 0; }
+    }
+
+    .hint {
+      margin-top: 1rem;
+      text-align: center;
+      font-size: 0.7rem;
+      color: var(--muted);
+      letter-spacing: 0.05em;
+    }
+
+    @media (max-width: 360px) {
+      .key { height: 52px; font-size: 1rem; }
+    }
+  </style>
+</head>
+<body>
+  <div class="calc" role="application" aria-label="Калькулятор">
+    <div class="calc-header">
+      <span class="calc-title">Calc Pro</span>
+      <span class="mode-dot" aria-hidden="true"></span>
+    </div>
+
+    <div class="display-wrap">
+      <div class="expression" id="expression" aria-hidden="true"></div>
+      <div class="result" id="display" aria-live="polite">0</div>
+    </div>
+
+    <div class="keys" id="keys">
+      <button type="button" class="key clear" data-action="clear">AC</button>
+      <button type="button" class="key clear" data-action="back">⌫</button>
+      <button type="button" class="key op" data-action="op" data-value="%">%</button>
+      <button type="button" class="key op" data-action="op" data-value="/">÷</button>
+
+      <button type="button" class="key" data-action="digit" data-value="7">7</button>
+      <button type="button" class="key" data-action="digit" data-value="8">8</button>
+      <button type="button" class="key" data-action="digit" data-value="9">9</button>
+      <button type="button" class="key op" data-action="op" data-value="*">×</button>
+
+      <button type="button" class="key" data-action="digit" data-value="4">4</button>
+      <button type="button" class="key" data-action="digit" data-value="5">5</button>
+      <button type="button" class="key" data-action="digit" data-value="6">6</button>
+      <button type="button" class="key op" data-action="op" data-value="-">−</button>
+
+      <button type="button" class="key" data-action="digit" data-value="3">3</button>
+      <button type="button" class="key" data-action="digit" data-value="2">2</button>
+      <button type="button" class="key" data-action="digit" data-value="1">1</button>
+      <button type="button" class="key op" data-action="op" data-value="+">+</button>
+
+      <button type="button" class="key wide" data-action="digit" data-value="0">0</button>
+      <button type="button" class="key" data-action="dot">,</button>
+      <button type="button" class="key equals" data-action="equals">=</button>
+    </div>
+
+    <p class="hint">Клавиатура: цифры · Enter = · Esc сброс</p>
+  </div>
+
+  <script>
+    const displayEl = document.getElementById("display");
+    const expressionEl = document.getElementById("expression");
+    const keysEl = document.getElementById("keys");
+
+    let current = "0";
+    let stored = null;
+    let pendingOp = null;
+    let freshInput = true;
+    let lastExpression = "";
+
+    function formatDisplay(value) {
+      if (value === "Ошибка") return value;
+      const str = String(value);
+      if (str.length > 12) {
+        const num = Number(str);
+        if (Number.isFinite(num)) return num.toPrecision(8).replace(/\.?0+e/, "e");
+      }
+      const parts = str.split(".");
+      parts[0] = parts[0].replace(/\B(?=(\d{3})+(?!\d))/g, " ");
+      return parts.join(",");
+    }
+
+    function parseInput(str) {
+      return parseFloat(str.replace(/\s/g, "").replace(",", "."));
+    }
+
+    function updateDisplay(bump = false) {
+      displayEl.textContent = formatDisplay(current);
+      displayEl.classList.toggle("error", current === "Ошибка");
+      if (bump) {
+        displayEl.classList.remove("bump");
+        void displayEl.offsetWidth;
+        displayEl.classList.add("bump");
+      }
+    }
+
+    function setExpression(text) {
+      if (text) {
+        expressionEl.textContent = text;
+        expressionEl.classList.add("visible");
+      } else {
+        expressionEl.classList.remove("visible");
+        expressionEl.textContent = "";
+      }
+    }
+
+    function calculate(a, op, b) {
+      switch (op) {
+        case "+": return a + b;
+        case "-": return a - b;
+        case "*": return a * b;
+        case "/": return b === 0 ? NaN : a / b;
+        case "%": return a % b;
+        default: return b;
+      }
+    }
+
+    function inputDigit(d) {
+      if (current === "Ошибка") reset();
+      if (freshInput || current === "0") {
+        current = d;
+        freshInput = false;
+      } else if (current.replace(/[,\s]/g, "").length < 14) {
+        current += d;
+      }
+      updateDisplay(true);
+    }
+
+    function inputDot() {
+      if (current === "Ошибка") reset();
+      if (freshInput) {
+        current = "0,";
+        freshInput = false;
+      } else if (!current.includes(",")) {
+        current += ",";
+      }
+      updateDisplay();
+    }
+
+    function setOp(op) {
+      if (current === "Ошибка") return;
+      const val = parseInput(current);
+
+      if (stored !== null && pendingOp && !freshInput) {
+        const result = calculate(stored, pendingOp, val);
+        if (!Number.isFinite(result)) {
+          current = "Ошибка";
+          stored = null;
+          pendingOp = null;
+          setExpression("");
+          updateDisplay();
+          return;
+        }
+        stored = result;
+        current = String(result).replace(".", ",");
+        lastExpression = `${formatDisplay(stored)} ${symbolFor(pendingOp)} ${formatDisplay(val)} =`;
+      } else {
+        stored = val;
+      }
+
+      pendingOp = op;
+      freshInput = true;
+      setExpression(`${formatDisplay(stored)} ${symbolFor(op)}`);
+      updateDisplay();
+    }
+
+    function symbolFor(op) {
+      return { "+": "+", "-": "−", "*": "×", "/": "÷", "%": "%" }[op] || op;
+    }
+
+    function equals() {
+      if (current === "Ошибка" || pendingOp === null || stored === null) return;
+      const val = parseInput(current);
+      const result = calculate(stored, pendingOp, val);
+
+      if (!Number.isFinite(result)) {
+        current = "Ошибка";
+        setExpression("");
+        updateDisplay();
+        return;
+      }
+
+      lastExpression = `${formatDisplay(stored)} ${symbolFor(pendingOp)} ${formatDisplay(val)} =`;
+      setExpression(lastExpression);
+      current = String(result).replace(".", ",");
+      stored = null;
+      pendingOp = null;
+      freshInput = true;
+      updateDisplay(true);
+    }
+
+    function backspace() {
+      if (current === "Ошибка" || freshInput) return;
+      const raw = current.replace(/\s/g, "");
+      if (raw.length <= 1) {
+        current = "0";
+        freshInput = true;
+      } else {
+        current = raw.slice(0, -1);
+      }
+      updateDisplay();
+    }
+
+    function reset() {
+      current = "0";
+      stored = null;
+      pendingOp = null;
+      freshInput = true;
+      setExpression("");
+      updateDisplay();
+    }
+
+    function percent() {
+      if (current === "Ошибка") return;
+      const val = parseInput(current) / 100;
+      current = String(val).replace(".", ",");
+      freshInput = true;
+      updateDisplay(true);
+    }
+
+    function ripple(e, btn) {
+      const rect = btn.getBoundingClientRect();
+      const size = Math.max(rect.width, rect.height);
+      const span = document.createElement("span");
+      span.className = "ripple";
+      span.style.width = span.style.height = `${size}px`;
+      span.style.left = `${e.clientX - rect.left - size / 2}px`;
+      span.style.top = `${e.clientY - rect.top - size / 2}px`;
+      btn.appendChild(span);
+      span.addEventListener("animationend", () => span.remove());
+    }
+
+    keysEl.addEventListener("click", (e) => {
+      const btn = e.target.closest(".key");
+      if (!btn) return;
+      ripple(e, btn);
+
+      const action = btn.dataset.action;
+      const value = btn.dataset.value;
+
+      switch (action) {
+        case "digit": inputDigit(value); break;
+        case "dot": inputDot(); break;
+        case "op":
+          if (value === "%") percent();
+          else setOp(value);
+          break;
+        case "equals": equals(); break;
+        case "clear": reset(); break;
+        case "back": backspace(); break;
+      }
+    });
+
+    document.addEventListener("keydown", (e) => {
+      if (e.key >= "0" && e.key <= "9") {
+        e.preventDefault();
+        inputDigit(e.key);
+        return;
+      }
+      if (e.key === "." || e.key === ",") {
+        e.preventDefault();
+        inputDot();
+        return;
+      }
+      const ops = { "+": "+", "-": "-", "*": "*", "/": "/" };
+      if (ops[e.key]) {
+        e.preventDefault();
+        setOp(ops[e.key]);
+        return;
+      }
+      if (e.key === "Enter" || e.key === "=") {
+        e.preventDefault();
+        equals();
+        return;
+      }
+      if (e.key === "Escape") {
+        e.preventDefault();
+        reset();
+        return;
+      }
+      if (e.key === "Backspace") {
+        e.preventDefault();
+        backspace();
+      }
+    });
+
+    updateDisplay();
+  </script>
+</body>
+</html>
